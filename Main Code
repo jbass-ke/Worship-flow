@@ -1,0 +1,595 @@
+```react
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  Home, Music, Calendar, BookOpen, Bell, CheckCircle, 
+  Play, Pause, Settings2, MessageSquare, MapPin, 
+  User, RotateCcw, Volume2, VolumeX, 
+  FileText, ArrowLeft, ChevronsLeft, Maximize2, Sliders
+} from 'lucide-react';
+
+// --- MOCK DATA ---
+const MOCK_SETLIST = [
+  { id: 1, title: "Praise", author: "Elevation Worship", key: "A", bpm: 128 },
+  { id: 2, title: "Great Are You Lord", author: "All Sons & Daughters", key: "G", bpm: 72 },
+  { id: 3, title: "What A Beautiful Name", author: "Hillsong Worship", key: "D", bpm: 68 },
+];
+
+const MOCK_SCHEDULE = [
+  { role: "Worship Leader", name: "Alex (You)", confirmed: true },
+  { role: "Acoustic Guitar", name: "David M.", confirmed: true },
+  { role: "Drums", name: "Sarah K.", confirmed: true },
+  { role: "Keys", name: "James T.", confirmed: false },
+  { role: "Sound Tech", name: "Marcus W.", confirmed: true },
+];
+
+// Stems specific to the loaded song
+const STEM_TRACKS = [
+  { id: '1', name: 'Click / Guide' },
+  { id: '2', name: 'Drums' },
+  { id: '3', name: 'Bass Guitar' },
+  { id: '4', name: 'Keys / Pad' },
+  { id: '5', name: 'Acoustic Guitar' },
+  { id: '6', name: 'Lead Vocal' },
+];
+
+export default function App() {
+  const [currentView, setCurrentView] = useState('home');
+  const [activeSong, setActiveSong] = useState(null);
+  
+  const [checkedIn, setCheckedIn] = useState(false);
+  const [devotionalWatched, setDevotionalWatched] = useState(false);
+  const [announcementRead, setAnnouncementRead] = useState(false);
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const [loopEnabled, setLoopEnabled] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  
+  // Initialize volumes for stems
+  const [volumes, setVolumes] = useState(STEM_TRACKS.map(() => 0.8));
+  const [isMuted, setIsMuted] = useState(STEM_TRACKS.map(() => false));
+  const [rehearsalTab, setRehearsalTab] = useState('mixer');
+  
+  const timerRef = useRef(null);
+  const duration = 245; 
+  const loopStart = 45;
+  const loopEnd = 75;
+
+  useEffect(() => {
+    if (isPlaying && currentView === 'rehearsal') {
+      timerRef.current = setInterval(() => {
+        setCurrentTime((prev) => {
+          let nextTime = prev + (0.2 * playbackSpeed);
+          if (loopEnabled && nextTime >= loopEnd) return loopStart;
+          if (nextTime >= duration) {
+            setIsPlaying(false);
+            return 0;
+          }
+          return nextTime;
+        });
+      }, 200);
+    } else {
+      clearInterval(timerRef.current);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [isPlaying, playbackSpeed, loopEnabled, currentView]);
+
+  const exitRehearsal = () => {
+    setIsPlaying(false);
+    setCurrentView('setlist');
+    setActiveSong(null);
+  };
+
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  const handleVolumeChange = (index, value) => {
+    const updated = [...volumes];
+    updated[index] = parseFloat(value);
+    setVolumes(updated);
+  };
+
+  const handleMuteToggle = (index) => {
+    const updated = [...isMuted];
+    updated[index] = !updated[index];
+    setIsMuted(updated);
+  };
+
+  // ==========================================
+  // VIEW: HOME DASHBOARD
+  // ==========================================
+  const renderHome = () => (
+    <div className="p-5 space-y-6 pb-32 animate-in fade-in zoom-in-95 duration-200">
+      
+      {/* Service & Check-in */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-[2rem] p-6 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+        <div className="relative z-10">
+          <p className="text-amber-500 text-xs font-bold uppercase tracking-widest mb-1">Upcoming Service</p>
+          <h2 className="text-2xl font-black tracking-tight mb-1 text-neutral-100">Sunday Morning</h2>
+          <p className="text-neutral-400 text-sm font-medium mb-6">May 24 • Call Time: 7:30 AM</p>
+          
+          <button 
+            onClick={() => setCheckedIn(!checkedIn)}
+            className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all duration-300 transform active:scale-95 ${
+              checkedIn 
+                ? 'bg-neutral-800 text-amber-500 border border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.15)]' 
+                : 'bg-gradient-to-r from-amber-400 to-amber-500 text-neutral-950 shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:brightness-110'
+            }`}
+          >
+            {checkedIn ? <><CheckCircle size={20} /> Checked In Successfully</> : <><MapPin size={20} /> Slide or Tap to Check-In</>}
+          </button>
+        </div>
+      </div>
+
+      {/* Devotional Tracking */}
+      <div className={`border rounded-[2rem] p-5 transition-all duration-300 ${devotionalWatched ? 'border-neutral-800 bg-neutral-900/50' : 'border-amber-500/30 bg-neutral-900 shadow-lg'}`}>
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-2">
+            <BookOpen size={20} className={devotionalWatched ? 'text-neutral-500' : 'text-amber-500'} />
+            <h3 className={`font-bold ${devotionalWatched ? 'text-neutral-500' : 'text-neutral-200'}`}>Weekly Devotional</h3>
+          </div>
+          {!devotionalWatched && <span className="bg-amber-500/20 text-amber-400 text-[10px] font-black tracking-wider px-2 py-1 rounded uppercase border border-amber-500/30">Required</span>}
+        </div>
+        <p className={`text-sm mb-5 font-medium ${devotionalWatched ? 'text-neutral-600' : 'text-neutral-400'}`}>"Leading from Within: The Heart of Worship"</p>
+        <button 
+          onClick={() => setDevotionalWatched(true)}
+          className={`w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
+            devotionalWatched 
+              ? 'bg-neutral-950 text-neutral-600 border border-neutral-800 cursor-default' 
+              : 'bg-amber-500 text-neutral-950 hover:bg-amber-400 shadow-md'
+          }`}
+          disabled={devotionalWatched}
+        >
+          {devotionalWatched ? <><CheckCircle size={18} /> Completed</> : <><Play size={18} fill="currentColor" /> Watch 3 Min Video</>}
+        </button>
+      </div>
+
+      {/* Announcements */}
+      <div>
+        <h3 className="font-bold text-neutral-300 mb-3 flex items-center gap-2 px-1">
+          <MessageSquare size={18} className="text-amber-500" /> Team Updates
+        </h3>
+        <div className={`bg-neutral-900 border transition-colors duration-300 rounded-[2rem] p-5 ${announcementRead ? 'border-neutral-800' : 'border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.05)]'}`}>
+          <div className="flex gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center shrink-0 border border-neutral-700">
+              <User size={20} className="text-amber-500" />
+            </div>
+            <div>
+              <p className="font-bold text-neutral-200 text-sm">Pastor Mike</p>
+              <p className="text-xs text-neutral-500 font-medium">2 hours ago</p>
+            </div>
+          </div>
+          <p className="text-neutral-400 text-sm leading-relaxed mb-5">
+            Hey team! Dress code for this Sunday is <strong className="text-amber-500 font-semibold">all black</strong>. Also, please review the extended bridge for "Praise" - we are adding an extra loop.
+          </p>
+          {!announcementRead ? (
+            <button 
+              onClick={() => setAnnouncementRead(true)}
+              className="flex items-center justify-center w-full gap-2 text-sm text-amber-500 font-bold bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 py-3 rounded-xl transition-colors active:scale-95"
+            >
+              <CheckCircle size={16} /> Mark as Read
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-amber-500/70 font-bold">
+              <CheckCircle size={14} /> Read by you
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ==========================================
+  // VIEW: SETLIST
+  // ==========================================
+  const renderSetlist = () => (
+    <div className="p-5 space-y-4 pb-32 animate-in slide-in-from-right-8 duration-200">
+      <div className="flex justify-between items-end mb-4 px-1">
+        <h2 className="text-xl font-black text-neutral-100 tracking-tight">Sunday Setlist</h2>
+        <button className="text-amber-500 text-xs font-bold uppercase tracking-wider bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg">Download All</button>
+      </div>
+      <div className="space-y-3">
+        {MOCK_SETLIST.map((song, index) => (
+          <div 
+            key={song.id} 
+            onClick={() => {
+              setActiveSong(song);
+              setCurrentTime(0);
+              setRehearsalTab('mixer'); // Force stems view by default
+              setCurrentView('rehearsal');
+            }}
+            className="bg-neutral-900 p-4 rounded-3xl border border-neutral-800 flex items-center gap-4 cursor-pointer hover:border-amber-500/50 hover:bg-neutral-800/80 transition-all transform active:scale-95 shadow-lg"
+          >
+            <div className="w-10 h-10 rounded-full bg-neutral-950 border border-neutral-800 text-amber-500 flex items-center justify-center font-black text-sm shrink-0">
+              {index + 1}
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-neutral-100 text-lg leading-tight mb-1">{song.title}</h3>
+              <div className="flex gap-2 text-[11px] font-mono text-neutral-500 font-bold uppercase">
+                <span className="bg-neutral-950 border border-neutral-800 px-2 py-0.5 rounded">Key: {song.key}</span>
+                <span className="bg-neutral-950 border border-neutral-800 px-2 py-0.5 rounded">{song.bpm} BPM</span>
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+              <Sliders size={16} className="text-amber-500" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  // ==========================================
+  // VIEW: SCHEDULE
+  // ==========================================
+  const renderSchedule = () => (
+    <div className="p-5 space-y-6 pb-32 animate-in slide-in-from-right-8 duration-200">
+      <div className="bg-neutral-900 rounded-[2rem] border border-neutral-800 overflow-hidden shadow-lg">
+        <div className="bg-neutral-950 px-6 py-4 border-b border-neutral-800 flex justify-between items-center">
+          <h2 className="font-black text-neutral-200">My Assignment</h2>
+          <span className="bg-amber-500/20 text-amber-500 border border-amber-500/30 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md">Confirmed</span>
+        </div>
+        <div className="p-6">
+          <div className="flex items-start gap-4 mb-6">
+            <div className="bg-neutral-950 border border-neutral-800 w-14 h-14 rounded-2xl flex flex-col items-center justify-center text-amber-500 shrink-0">
+              <span className="text-[10px] font-black uppercase tracking-widest">May</span>
+              <span className="text-xl font-black leading-none mt-0.5">24</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-neutral-100 text-lg">Sunday Service</h3>
+              <p className="text-neutral-500 text-sm font-medium mt-0.5">Call time: 7:30 AM</p>
+              <div className="inline-block mt-2 bg-amber-500 text-neutral-950 text-xs font-bold px-3 py-1 rounded-md shadow-sm">
+                Role: Worship Leader
+              </div>
+            </div>
+          </div>
+          <button className="w-full py-3.5 bg-neutral-950 border border-neutral-800 text-neutral-300 font-bold rounded-xl text-sm hover:bg-neutral-800 transition active:scale-95">
+            Request Swap
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-bold text-neutral-400 mb-3 px-1 text-sm uppercase tracking-wider">Full Team Roster</h3>
+        <div className="bg-neutral-900 rounded-3xl border border-neutral-800 divide-y divide-neutral-800/50 overflow-hidden shadow-lg">
+          {MOCK_SCHEDULE.map((item, i) => (
+            <div key={i} className="px-5 py-4 flex justify-between items-center">
+              <div>
+                <p className="text-[10px] text-amber-500/80 uppercase tracking-widest font-black mb-1">{item.role}</p>
+                <p className="font-bold text-neutral-200">{item.name}</p>
+              </div>
+              <div className={`w-8 h-8 rounded-full border flex items-center justify-center ${item.confirmed ? 'bg-amber-500/10 border-amber-500/30 text-amber-500' : 'bg-neutral-800 border-neutral-700 text-neutral-500'}`}>
+                {item.confirmed ? <CheckCircle size={16} /> : <div className="w-2 h-2 rounded-full bg-neutral-500"></div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ==========================================
+  // VIEW: REHEARSAL MIXER (Pro Audio UI)
+  // ==========================================
+  const renderRehearsal = () => (
+    <div className="h-full flex flex-col bg-neutral-950 text-neutral-100 absolute inset-0 z-50 animate-in slide-in-from-bottom-full duration-300">
+      
+      {/* Phone Notch/Status Bar Margin */}
+      <div className="h-6 w-full bg-neutral-950 shrink-0"></div>
+
+      {/* Header */}
+      <div className="px-5 pt-2 pb-4 bg-neutral-950 border-b border-neutral-900 flex justify-between items-center shrink-0">
+        <div className="flex items-center gap-3">
+          <button onClick={exitRehearsal} className="p-2 -ml-2 bg-neutral-900 hover:bg-neutral-800 rounded-full text-neutral-300 transition border border-neutral-800">
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <span className="text-[10px] text-amber-500 font-black tracking-widest uppercase mb-0.5 block">Stem Mixer</span>
+            <h2 className="text-lg font-black text-white truncate max-w-[180px]">{activeSong?.title}</h2>
+          </div>
+        </div>
+        <div className="flex gap-1.5 shrink-0 flex-col items-end">
+          <span className="bg-neutral-900 border border-neutral-800 text-neutral-300 px-2 py-0.5 rounded text-[10px] font-mono font-bold">KEY: {activeSong?.key}</span>
+          <span className="bg-neutral-900 border border-neutral-800 text-neutral-300 px-2 py-0.5 rounded text-[10px] font-mono font-bold">{activeSong?.bpm} BPM</span>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-neutral-950 px-4 py-2 flex gap-2 border-b border-neutral-900 shrink-0">
+        {['mixer', 'charts', 'lyrics'].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setRehearsalTab(tab)}
+            className={`flex-1 py-2 text-xs font-black rounded-xl transition uppercase tracking-wider border ${
+              rehearsalTab === tab 
+                ? 'bg-amber-500 text-neutral-950 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]' 
+                : 'bg-neutral-900 text-neutral-500 border-neutral-800 hover:text-neutral-300'
+            }`}
+          >
+            {tab === 'mixer' ? 'Stems' : tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-neutral-950 pb-36">
+        
+        {rehearsalTab === 'mixer' && (
+          <div className="space-y-4 animate-in fade-in duration-300">
+            {/* Speed Control */}
+            <div className="bg-neutral-900 p-4 rounded-[2rem] border border-neutral-800 shadow-xl">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-[10px] font-black text-neutral-500 tracking-widest uppercase">Playback Speed</span>
+                <span className="text-xs font-mono font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded">{playbackSpeed.toFixed(2)}x</span>
+              </div>
+              <div className="flex gap-2">
+                {[0.5, 0.75, 1.0, 1.25, 1.5].map((speed) => (
+                  <button
+                    key={speed}
+                    onClick={() => setPlaybackSpeed(speed)}
+                    className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all border ${
+                      playbackSpeed === speed
+                        ? 'bg-amber-500 text-neutral-950 border-amber-400 shadow-md transform scale-105'
+                        : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white hover:border-neutral-700'
+                    }`}
+                  >
+                    {speed}x
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Multitrack Faders - PROMINENT STEMS VIEW */}
+            <div className="space-y-3 bg-neutral-900 p-5 rounded-[2rem] border border-neutral-800 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-black text-amber-500 tracking-widest uppercase">Stem Audio Tracks</span>
+                <Sliders size={16} className="text-neutral-500" />
+              </div>
+              
+              {STEM_TRACKS.map((track, i) => (
+                <div key={track.id} className="bg-neutral-950 p-4 rounded-2xl border border-neutral-800 relative overflow-hidden group">
+                  {/* Subtle gold glow behind active track */}
+                  {volumes[i] > 0 && !isMuted[i] && (
+                    <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                  )}
+
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="flex items-center gap-3 pl-2">
+                      <span className="text-xs font-bold text-neutral-200 uppercase tracking-wider">{track.name}</span>
+                    </div>
+                    <div className="flex gap-2">
+                       <button 
+                        onClick={() => {
+                          const updated = [...isMuted];
+                          updated.fill(true);
+                          updated[i] = false;
+                          setIsMuted(updated);
+                        }}
+                        className={`px-3 py-1 text-[10px] font-black rounded-lg transition uppercase tracking-wider border ${
+                          isMuted.every((m, idx) => idx === i ? !m : m)
+                            ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' 
+                            : 'bg-neutral-900 text-neutral-500 border-neutral-800 hover:text-neutral-300'
+                        }`}
+                      >
+                        Solo
+                      </button>
+                      <button 
+                        onClick={() => handleMuteToggle(i)}
+                        className={`px-3 py-1 text-[10px] font-black rounded-lg transition uppercase tracking-wider border ${
+                          isMuted[i] 
+                            ? 'bg-neutral-800 text-neutral-500 border-neutral-700' 
+                            : 'bg-amber-500 text-neutral-950 border-amber-400'
+                        }`}
+                      >
+                        {isMuted[i] ? 'Muted' : 'On'}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Gold Slider */}
+                  <div className="flex items-center gap-3 pl-2 pr-1">
+                    <VolumeX size={14} className={isMuted[i] ? "text-neutral-600" : "text-neutral-500"} />
+                    <input 
+                      type="range" 
+                      min="0" max="1" step="0.05"
+                      value={volumes[i]}
+                      onChange={(e) => handleVolumeChange(i, e.target.value)}
+                      className="flex-1 accent-amber-500 h-1.5 bg-neutral-800 rounded-lg cursor-pointer"
+                    />
+                    <Volume2 size={14} className={volumes[i] > 0.8 && !isMuted[i] ? "text-amber-500" : "text-neutral-500"} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {rehearsalTab === 'charts' && (
+          <div className="h-full flex flex-col items-center py-8 text-center px-4 animate-in fade-in">
+            <div className="w-20 h-20 rounded-3xl bg-amber-500/10 flex items-center justify-center text-amber-500 mb-6 border border-amber-500/20 shadow-inner">
+              <FileText size={32} />
+            </div>
+            <h3 className="font-bold text-white mb-2 text-lg">Chord Chart Viewer</h3>
+            <p className="text-sm text-neutral-400 mb-8 max-w-[240px]">High-resolution PDF loaded from offline device cache.</p>
+            
+            <div className="w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-5 text-left font-mono text-sm leading-relaxed text-neutral-300 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+              <p className="text-[10px] text-neutral-500 font-sans tracking-widest font-black uppercase mb-3">VERSE 1</p>
+              <p className="font-bold text-amber-500">[G]          [C2]</p>
+              <p className="text-neutral-200 mb-5">You give life, You are love</p>
+              <p className="font-bold text-amber-500">[Em7]         [D]</p>
+              <p className="text-neutral-200">You bring light to the darkness</p>
+            </div>
+          </div>
+        )}
+
+        {rehearsalTab === 'lyrics' && (
+          <div className="h-full flex flex-col justify-center items-center py-10 space-y-8 animate-in fade-in">
+            <div className="inline-block bg-neutral-900 text-amber-500 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-amber-500/30">
+              Auto-Scrolling Active
+            </div>
+            <div className="space-y-8 text-center w-full px-6">
+              <p className="text-sm font-medium text-neutral-600">It's Your breath in our lungs</p>
+              <p className="text-xl font-black text-amber-500 leading-snug drop-shadow-md transform scale-105 transition-all duration-300">
+                So we pour out our praise,<br/>pour out our praise
+              </p>
+              <p className="text-sm font-medium text-neutral-600">It's Your breath in our lungs</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Floating Playback Controls (Rehearsal) */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[92%] bg-neutral-900/95 backdrop-blur-xl border border-neutral-800 rounded-[2rem] px-5 py-4 z-50 shadow-[0_10px_40px_rgba(0,0,0,0.8)]">
+        
+        {/* Progress Bar */}
+        <div className="mb-3">
+          <div className="flex justify-between items-center text-[10px] text-neutral-400 font-mono font-bold mb-2 px-1">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+          <div className="relative h-2 w-full bg-neutral-800 rounded-full overflow-hidden cursor-pointer">
+            <div 
+              className="absolute left-0 top-0 h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full transition-all duration-200" 
+              style={{ width: `${(currentTime / duration) * 100}%` }}
+            />
+            {loopEnabled && (
+              <>
+                <div 
+                  className="absolute top-0 h-full w-1.5 bg-white z-10 rounded-full" 
+                  style={{ left: `${(loopStart / duration) * 100}%` }}
+                />
+                <div 
+                  className="absolute top-0 h-full w-1.5 bg-white z-10 rounded-full" 
+                  style={{ left: `${(loopEnd / duration) * 100}%` }}
+                />
+                <div 
+                  className="absolute top-0 h-full bg-white/20"
+                  style={{ left: `${(loopStart / duration) * 100}%`, width: `${((loopEnd - loopStart) / duration) * 100}%` }}
+                />
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Transport Buttons */}
+        <div className="flex justify-between items-center px-1">
+          <button 
+            onClick={() => setLoopEnabled(!loopEnabled)}
+            className={`p-3 rounded-2xl transition-all border ${
+              loopEnabled 
+                ? 'bg-amber-500 text-neutral-950 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.3)]' 
+                : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white'
+            }`}
+          >
+            <RotateCcw size={18} className={loopEnabled ? 'animate-spin-slow' : ''} />
+          </button>
+
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setCurrentTime(Math.max(0, currentTime - 10))}
+              className="p-3 bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 rounded-full transition text-neutral-300"
+            >
+              <ChevronsLeft size={20} />
+            </button>
+
+            <button 
+              onClick={() => setIsPlaying(!isPlaying)}
+              className="w-16 h-16 bg-amber-500 text-neutral-950 rounded-full flex items-center justify-center hover:bg-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.3)] transform active:scale-90 transition-all border border-amber-400"
+            >
+              {isPlaying ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" className="ml-1" />}
+            </button>
+
+            <button 
+              onClick={() => setCurrentTime(Math.min(duration, currentTime + 10))}
+              className="p-3 bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 rounded-full transition text-neutral-300"
+            >
+              <Play size={20} className="transform rotate-180" />
+            </button>
+          </div>
+
+          <button className="p-3 bg-neutral-950 border border-neutral-800 rounded-2xl transition text-neutral-400 hover:text-white">
+            <Maximize2 size={18} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ==========================================
+  // MAIN APP LAYOUT (MOBILE SHELL)
+  // ==========================================
+  return (
+    <div className="min-h-screen bg-black flex items-center justify-center sm:p-6 font-sans text-neutral-100 selection:bg-amber-500/30">
+      
+      {/* Mobile Device Mockup Container */}
+      <div className="w-full h-full sm:max-w-[400px] sm:h-[850px] bg-neutral-950 sm:rounded-[3rem] shadow-2xl overflow-hidden relative flex flex-col sm:border-[8px] sm:border-neutral-800">
+        
+        {/* Global Header */}
+        {currentView !== 'rehearsal' && (
+          <div className="bg-neutral-950/80 backdrop-blur-xl px-6 pt-12 pb-4 flex justify-between items-center sticky top-0 z-10 border-b border-neutral-900 shrink-0">
+            <h1 className="text-2xl font-black text-neutral-100 tracking-tight">
+              {currentView === 'home' ? 'WorshipFlow' : 
+               currentView === 'setlist' ? 'Music Library' : 
+               'Schedule'}
+            </h1>
+            <button className="relative p-2.5 bg-neutral-900 border border-neutral-800 rounded-full hover:bg-neutral-800 transition active:scale-95 text-amber-500">
+              <Bell size={20} />
+              <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 border-2 border-neutral-900 rounded-full"></span>
+            </button>
+          </div>
+        )}
+
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto no-scrollbar relative bg-neutral-950">
+          {currentView === 'home' && renderHome()}
+          {currentView === 'setlist' && renderSetlist()}
+          {currentView === 'schedule' && renderSchedule()}
+          {currentView === 'rehearsal' && renderRehearsal()}
+        </div>
+
+        {/* FLOATING Bottom Navigation Island */}
+        {currentView !== 'rehearsal' && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] bg-neutral-900/95 backdrop-blur-md border border-neutral-800 rounded-full px-6 py-3 flex justify-between items-center z-50 shadow-[0_10px_40px_rgba(0,0,0,0.8)]">
+            <button 
+              onClick={() => setCurrentView('home')}
+              className={`flex flex-col items-center gap-1 transition-colors ${currentView === 'home' ? 'text-amber-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+            >
+              <Home size={22} className={currentView === 'home' ? 'fill-amber-500/20' : ''} />
+              <span className="text-[9px] font-bold tracking-wider uppercase">Home</span>
+            </button>
+            
+            <button 
+              onClick={() => setCurrentView('setlist')}
+              className={`flex flex-col items-center gap-1 transition-colors ${currentView === 'setlist' ? 'text-amber-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+            >
+              <Music size={22} className={currentView === 'setlist' ? 'fill-amber-500/20' : ''} />
+              <span className="text-[9px] font-bold tracking-wider uppercase">Setlist</span>
+            </button>
+            
+            <button 
+              onClick={() => setCurrentView('schedule')}
+              className={`flex flex-col items-center gap-1 transition-colors ${currentView === 'schedule' ? 'text-amber-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+            >
+              <Calendar size={22} className={currentView === 'schedule' ? 'fill-amber-500/20' : ''} />
+              <span className="text-[9px] font-bold tracking-wider uppercase">Schedule</span>
+            </button>
+
+            <button className="flex flex-col items-center gap-1 text-neutral-500 hover:text-neutral-300 transition-colors">
+              <Settings2 size={22} />
+              <span className="text-[9px] font-bold tracking-wider uppercase">Profile</span>
+            </button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+
+```
